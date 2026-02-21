@@ -4,6 +4,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+
+ARG VITE_API_URL
+ENV VITE_API_URL=http://localhost:8080/api
+
 RUN npm run build
 
 # Giai đoạn 2: Dùng Nginx phục vụ code đã build
