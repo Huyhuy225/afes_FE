@@ -6,13 +6,20 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22' # Ép GitHub dùng Node 22 để tương thích Vite 7
+
       - name: Install and Build
         run: |
           npm install
           npm run build
+
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist # Thư mục sau khi build (Vite là dist, React cũ là build)
-          branch: gh-pages # GitHub sẽ tự tạo branch này để chứa web
+          folder: dist
+          branch: gh-pages
