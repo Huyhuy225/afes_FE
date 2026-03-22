@@ -31,25 +31,27 @@ const Dashboard = () => {
                     // Tìm bản ghi khói và lửa mới nhất trong đống data
                     const latestSmoke = sortedData.find(item => item.topic && item.topic.includes('smoke'));
                     const latestFlame = sortedData.find(item => item.topic && item.topic.includes('flame'));
+                    const latestDht = sortedData.find(item => item.topic && item.topic.includes('dht20'));
 
-                    // Giả định: Cảm biến lửa Analog < 500 là có lửa (bạn có thể chỉnh lại số này theo thực tế phần cứng)
-                    const isFire = latestFlame ? latestFlame.mainValue < 500 : false;
+                    // Firmware đang publish FLAME theo % (0..100), cao hơn nghĩa là cháy mạnh hơn.
+                    const isFire = latestFlame ? latestFlame.mainValue >= 70 : false;
 
                     setLatestData({
-                        // Nếu sau này có cảm biến nhiệt độ DHT20, bạn thêm logic tìm kiếm tương tự
-                        temperature: 0, // Tạm thời để 0 vì hệ thống mới đang tập trung vào Smoke và Flame
+                        temperature: latestDht ? Number(latestDht.mainValue).toFixed(1) : 0,
                         gasLevel: latestSmoke ? latestSmoke.mainValue : 0,
                         fireDetected: isFire,
-                        timestamp: latestSmoke ? latestSmoke.timestamp : (latestFlame ? latestFlame.timestamp : '')
+                        timestamp: latestDht
+                            ? latestDht.timestamp
+                            : (latestSmoke ? latestSmoke.timestamp : (latestFlame ? latestFlame.timestamp : ''))
                     });
 
                     // --- BƯỚC 2: XỬ LÝ HISTORY DATA CHO BIỂU ĐỒ ---
                     // Biến đổi cấu trúc mảng mới thành mảng cũ để TrendChart không bị lỗi
                     const mappedHistory = sortedData.map(item => ({
                         timestamp: item.timestamp,
-                        temperature: 0, // Chờ sau này có data nhiệt độ
+                        temperature: item.topic.includes('dht20') ? item.mainValue : 0,
                         gas_level: item.topic.includes('smoke') ? item.mainValue : 0,
-                        fire_detected: item.topic.includes('flame') ? (item.mainValue < 500 ? 1 : 0) : 0
+                        fire_detected: item.topic.includes('flame') ? (item.mainValue >= 70 ? 1 : 0) : 0
                     }));
 
                     setHistoryData(mappedHistory);
@@ -121,7 +123,7 @@ const Dashboard = () => {
                 <h3 style={{ margin: '0 0 15px', color: '#2c3e50', fontSize: '18px' }}>ℹ️ Thông tin hệ thống</h3>
                 <div style={{ color: '#7f8c8d', fontSize: '14px', lineHeight: '1.8' }}>
                     <p style={{ margin: '5px 0' }}><strong>Cảm biến khí:</strong> MQ-2 (Phát hiện khói và khí dễ cháy)</p>
-                    <p style={{ margin: '5px 0' }}><strong>Cảm biến nhiệt độ:</strong> DHT20 (Đang chờ tích hợp)</p>
+                    <p style={{ margin: '5px 0' }}><strong>Cảm biến nhiệt độ:</strong> DHT20</p>
                     <p style={{ margin: '5px 0' }}><strong>Vi điều khiển:</strong> ESP32 với kết nối WiFi</p>
                     <p style={{ margin: '5px 0' }}><strong>Cập nhật dữ liệu:</strong> Mỗi 5 giây</p>
                 </div>
