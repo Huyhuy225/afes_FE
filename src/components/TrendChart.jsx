@@ -2,17 +2,16 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const TrendChart = ({ data }) => {
-    // Format data for the chart
     const chartData = data && data.length > 0 ? data.map(item => ({
         time: new Date(item.timestamp).toLocaleTimeString('vi-VN', { 
             hour: '2-digit', 
             minute: '2-digit',
             second: '2-digit'
         }),
-        temperature: item.temperature,
-        gasLevel: item.gasLevel,
+        temperature: Number(item.temperature || 0),
+        gasLevel: Number(item.gasLevel || 0),
         fullTimestamp: item.timestamp
-    })).reverse().slice(-20) : []; // Show last 20 data points
+    })).slice(-30) : [];
 
     return (
         <div style={{
@@ -60,6 +59,18 @@ const TrendChart = ({ data }) => {
                         style={{ fontSize: '12px' }}
                     />
                     <Tooltip 
+                        formatter={(value, name) => {
+                            if (name.includes('Nhiệt độ')) {
+                                return [`${Number(value).toFixed(1)} °C`, name];
+                            }
+                            return [`${Number(value).toFixed(0)} ppm`, name];
+                        }}
+                        labelFormatter={(_, payload) => {
+                            if (payload && payload[0] && payload[0].payload) {
+                                return new Date(payload[0].payload.fullTimestamp).toLocaleString('vi-VN');
+                            }
+                            return '';
+                        }}
                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }}
                     />
                     <Legend />

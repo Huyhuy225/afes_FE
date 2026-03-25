@@ -1,10 +1,13 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { MQ2_SMOKE_ALERT_THRESHOLD_PPM, TEMP_ALERT_THRESHOLD_C } from '../constants/sensors';
 
 const AlertStats = ({ historyData }) => {
-    // Calculate statistics
+
     const totalRecords = historyData && historyData.length ? historyData.length : 0;
     const fireDetectedCount = historyData && historyData.length ? historyData.filter(item => item.fireDetected).length : 0;
+    const highTempCount = historyData && historyData.length ? historyData.filter(item => Number(item.temperature || 0) >= TEMP_ALERT_THRESHOLD_C).length : 0;
+    const highSmokeCount = historyData && historyData.length ? historyData.filter(item => Number(item.gasLevel || 0) >= MQ2_SMOKE_ALERT_THRESHOLD_PPM).length : 0;
     const safeCount = totalRecords - fireDetectedCount;
     
     const avgTemperature = totalRecords > 0 && historyData
@@ -78,6 +81,15 @@ const AlertStats = ({ historyData }) => {
                         </h4>
                         <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#e74c3c' }}>
                             {fireDetectedCount}
+                        </p>
+                    </div>
+
+                    <div style={{ marginBottom: '15px' }}>
+                        <h4 style={{ margin: '0 0 10px', color: '#7f8c8d', fontSize: '14px' }}>
+                            🌡️ HIGH TEMP / ☁️ SMOKE HIGH
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#d35400' }}>
+                            {highTempCount} / {highSmokeCount}
                         </p>
                     </div>
 

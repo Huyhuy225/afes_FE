@@ -130,6 +130,22 @@ const ControlPanel = ({ onControl }) => {
                     action="emergency_alert"
                     color="#c0392b"
                 />
+
+                <ControlButton
+                    icon="🔌"
+                    label="Tắt toàn bộ đầu ra"
+                    description="Tắt LED, còi báo và bơm; trở về chế độ tự động"
+                    action="all_outputs_off"
+                    color="#2c3e50"
+                />
+
+                <ControlButton
+                    icon="✅"
+                    label="Tắt cảnh báo khẩn cấp"
+                    description="Tắt output và trở về chế độ tự động"
+                    action="emergency_off"
+                    color="#27ae60"
+                />
             </div>
 
             <div style={{
