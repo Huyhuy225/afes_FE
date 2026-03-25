@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Activity, BellRing, Flame, Globe2, ShieldCheck, Thermometer, Wind } from 'lucide-react';
 import sensorApi from '../api/sensorApi';
 import SensorCard from '../components/SensorCard';
 import TrendChart from '../components/TrendChart';
@@ -11,9 +12,7 @@ import {
 } from '../constants/sensors';
 
 const buildHistorySeries = (rawData) => {
-    if (!Array.isArray(rawData) || rawData.length === 0) {
-        return [];
-    }
+    if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
     const sorted = [...rawData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     let currentTemperature = 0;
@@ -36,43 +35,309 @@ const buildHistorySeries = (rawData) => {
             timestamp: item.timestamp,
             temperature: currentTemperature,
             gasLevel: currentGasLevel,
-            fireDetected: currentFireDetected
+            fireDetected: currentFireDetected,
         };
     });
 };
 
-const buildAlertMessages = ({ temperature, gasLevel, fireDetected }) => {
+const buildAlertMessages = ({ temperature, gasLevel, fireDetected }, messages) => {
     const alerts = [];
     if (temperature >= TEMP_ALERT_THRESHOLD_C) {
-        alerts.push({ code: 'HIGH_TEMP', message: 'Nhiệt độ vượt ngưỡng an toàn', color: '#e67e22' });
+        alerts.push({ code: 'HIGH_TEMP', message: messages.highTemp, color: '#d97706' });
     }
     if (gasLevel >= MQ2_SMOKE_ALERT_THRESHOLD_PPM) {
-        alerts.push({ code: 'SMOKE_HIGH', message: 'Nồng độ khói vượt ngưỡng', color: '#f39c12' });
+        alerts.push({ code: 'SMOKE_HIGH', message: messages.highSmoke, color: '#d97706' });
     }
     if (fireDetected) {
-        alerts.push({ code: 'FIRE_ALERT', message: 'Phát hiện lửa / nguy cơ cháy', color: '#c0392b' });
+        alerts.push({ code: 'FIRE_ALERT', message: messages.fireDetected, color: '#dc2626' });
     }
     return alerts;
 };
 
 const DATA_POLL_MS = 2000;
+const LOGO_SRC = `${import.meta.env.BASE_URL}afes-logo.png`;
+
+const COPY = {
+    vi: {
+        locale: 'vi-VN',
+        brandName: 'AFES Dashboard',
+        brandSubtitle: 'Fire Alarm Systems',
+        liveBadge: 'Vận hành thời gian thực',
+        title: 'Bảng thông tin và điều khiển',
+        description: 'Theo dõi dữ liệu cảm biến và quản lý lệnh điều khiển trong một giao diện rõ ràng, tập trung và dễ giám sát.',
+        updateBadge: `Cập nhật mỗi ${DATA_POLL_MS / 1000}s`,
+        recentRecords: 'bản ghi gần đây',
+        activeAlerts: 'cảnh báo đang kích hoạt',
+        headerSafe: 'Trạng thái ổn định',
+        headerAlert: 'Yêu cầu kiểm tra',
+        tempPeakTitle: 'Nhiệt độ cực đại',
+        tempPeakHelp: 'Giá trị nhiệt độ cao nhất được ghi nhận trong tập dữ liệu hiện tại.',
+        statusTitle: 'Tình trạng hệ thống',
+        statusSafe: 'Vận hành ổn định',
+        statusAlert: 'Cần xử lý ngay',
+        statusSafeHelp: (peakSmoke) => `Nồng độ khói cao nhất hiện tại là ${peakSmoke} ppm và chưa ghi nhận tín hiệu cháy.`,
+        currentStatus: 'Thông số hiện tại',
+        temperature: 'Nhiệt độ',
+        smoke: 'Nồng độ khói',
+        fire: 'Tín hiệu cháy',
+        statusHigh: 'Mức cao',
+        statusStable: 'Ổn định',
+        statusWarning: 'Vượt chuẩn',
+        statusNormal: 'Trong chuẩn',
+        statusCritical: 'Khẩn cấp',
+        statusWatch: 'Theo dõi',
+        fireSafeValue: 'BÌNH THƯỜNG',
+        fireAlertValue: 'NGUY CƠ CAO',
+        tempCaption: `Ngưỡng giám sát từ ${TEMP_ALERT_THRESHOLD_C}°C`,
+        smokeCaption: `Ngưỡng giám sát từ ${MQ2_SMOKE_ALERT_THRESHOLD_PPM} ppm`,
+        fireSafeCaption: 'Chưa ghi nhận tín hiệu lửa vượt ngưỡng cấu hình.',
+        fireAlertCaption: 'Đang ghi nhận tín hiệu lửa cần được kiểm tra ngay.',
+        systemInfoKicker: 'Thông tin hệ thống',
+        systemInfoTitle: 'Thiết bị và hạ tầng vận hành',
+        systemInfoDescription: 'Tổng hợp cảm biến, bộ điều khiển và chu kỳ cập nhật dữ liệu của hệ thống.',
+        online: 'Online',
+        toast: {
+            success: 'Thao tác thành công',
+            error: 'Không thể thực hiện',
+        },
+        alerts: {
+            modalTitle: 'Thông báo cảnh báo hệ thống',
+            modalDescription: 'Hệ thống đang ghi nhận điều kiện vận hành vượt ngưỡng an toàn. Vui lòng kiểm tra hiện trường và xác nhận trạng thái thiết bị.',
+            acknowledge: 'Xác nhận',
+            highTemp: 'Nhiệt độ đã vượt ngưỡng an toàn cấu hình',
+            highSmoke: 'Nồng độ khói đã vượt ngưỡng giám sát',
+            fireDetected: 'Đã ghi nhận tín hiệu lửa - nguy cơ cháy',
+        },
+        chart: {
+            kicker: 'Diễn biến thời gian thực',
+            title: 'Xu hướng nhiệt độ và nồng độ khói',
+            description: 'Biểu đồ tổng hợp 30 mốc dữ liệu gần nhất để hỗ trợ theo dõi biến động bất thường.',
+            note: '30 mốc dữ liệu gần nhất',
+            waiting: 'Đang chờ dữ liệu đầu vào...',
+            temperatureLine: 'Nhiệt độ (°C)',
+            smokeLine: 'Nồng độ khói (ppm)',
+        },
+        stats: {
+            kicker: 'Thống kê và phân tích',
+            title: 'Tổng quan rủi ro vận hành',
+            description: 'Tóm tắt lịch sử vượt ngưỡng và tỷ lệ trạng thái an toàn để phục vụ giám sát tổng thể.',
+            records: 'bản ghi',
+            totalRecords: 'Tổng số bản ghi',
+            fireCount: 'Số lần ghi nhận tín hiệu cháy',
+            highTemp: 'Số lần nhiệt độ cao',
+            highSmoke: 'Số lần khói cao',
+            tempAvgMax: 'Nhiệt độ trung bình / cực đại',
+            smokeAvgMax: 'Khói trung bình / cực đại',
+            safe: 'An toàn',
+            fireAlert: 'Nguy cơ cháy',
+            noData: 'Chưa có dữ liệu thống kê',
+        },
+        control: {
+            kicker: 'Điều khiển thủ công',
+            title: 'Bảng điều khiển tác vụ',
+            description: 'Chỉ sử dụng khi cần can thiệp vận hành có kiểm soát.',
+            tag: 'Manual override',
+            warningTitle: 'Cảnh báo thao tác',
+            warningBody: 'Các lệnh bên dưới có thể ghi đè chế độ AUTO và tác động trực tiếp đến thiết bị đầu ra. Chỉ thực hiện khi đã xác nhận hiện trường an toàn và có người phụ trách vận hành.',
+            groups: {
+                water: 'Hệ thống nước',
+                alert: 'Báo động và cảnh báo',
+                system: 'Quản trị hệ thống',
+            },
+            buttons: {
+                pump_on: 'Kích hoạt bơm',
+                pump_off: 'Ngừng bơm',
+                test_alarm: 'Kiểm tra báo động',
+                emergency_alert: 'Kích hoạt khẩn cấp',
+                emergency_off: 'Kết thúc cảnh báo',
+                full_test: 'Kiểm tra toàn bộ',
+                reset_system: 'Khởi động lại hệ thống',
+                all_outputs_off: 'Ngắt toàn bộ đầu ra',
+            },
+            descriptions: {
+                pump_on: 'Kích hoạt bơm phục vụ dập lửa',
+                pump_off: 'Ngừng vận hành bơm nước',
+                test_alarm: 'Kiểm tra còi và đèn cảnh báo',
+                emergency_alert: 'Kích hoạt chế độ cảnh báo khẩn',
+                emergency_off: 'Đưa hệ thống về chế độ AUTO',
+                full_test: 'Thực hiện kiểm tra tổng thể',
+                reset_system: 'Khởi động lại bộ điều khiển',
+                all_outputs_off: 'Ngắt LED, còi và bơm',
+            },
+            loading: 'Đang thực thi...',
+        },
+        systemInfo: [
+            { label: 'Cảm biến khí', value: 'MQ-2  ·  Khói & khí dễ cháy' },
+            { label: 'Cảm biến nhiệt', value: 'DHT20' },
+            { label: 'Vi điều khiển', value: 'ESP32  ·  WiFi' },
+            { label: 'Chu kỳ cập nhật', value: '~2 giây  ·  MQTT' },
+        ],
+        feedback: {
+            updating: 'Đang cập nhật...',
+            pump_on: 'Đã gửi lệnh kích hoạt bơm thành công.',
+            pump_off: 'Đã gửi lệnh ngừng bơm thành công.',
+            test_alarm: 'Hệ thống đang thực hiện quy trình kiểm tra báo động.',
+            reset_system: 'Đã gửi lệnh khởi động lại hệ thống.',
+            full_test: 'Đang thực hiện quy trình kiểm tra tổng thể.',
+            emergency_alert: 'Đã kích hoạt chế độ cảnh báo khẩn cấp.',
+            all_outputs_off: 'Đã ngắt toàn bộ đầu ra. Hệ thống trở về trạng thái tự động.',
+            emergency_off: 'Đã kết thúc cảnh báo khẩn cấp. Hệ thống quay lại chế độ AUTO.',
+            error: 'Không thể thực hiện lệnh. Vui lòng kiểm tra kết nối hệ thống và thử lại.',
+        },
+    },
+    en: {
+        locale: 'en-GB',
+        brandName: 'AFES Dashboard',
+        brandSubtitle: 'Fire Alarm Systems',
+        liveBadge: 'Real-time operations',
+        title: 'Information and Control Dashboard',
+        description: 'Monitor sensor data and manage control actions through a clearer, more focused operating interface.',
+        updateBadge: `Refresh every ${DATA_POLL_MS / 1000}s`,
+        recentRecords: 'recent records',
+        activeAlerts: 'active alerts',
+        headerSafe: 'System stable',
+        headerAlert: 'Inspection required',
+        tempPeakTitle: 'Peak temperature',
+        tempPeakHelp: 'Highest temperature value recorded in the current dataset.',
+        statusTitle: 'System condition',
+        statusSafe: 'Operating normally',
+        statusAlert: 'Immediate action required',
+        statusSafeHelp: (peakSmoke) => `Current peak smoke concentration is ${peakSmoke} ppm with no fire signal detected.`,
+        currentStatus: 'Current readings',
+        temperature: 'Temperature',
+        smoke: 'Smoke level',
+        fire: 'Fire signal',
+        statusHigh: 'Elevated',
+        statusStable: 'Stable',
+        statusWarning: 'Above limit',
+        statusNormal: 'Within limit',
+        statusCritical: 'Critical',
+        statusWatch: 'Monitoring',
+        fireSafeValue: 'NORMAL',
+        fireAlertValue: 'HIGH RISK',
+        tempCaption: `Monitoring threshold from ${TEMP_ALERT_THRESHOLD_C}°C`,
+        smokeCaption: `Monitoring threshold from ${MQ2_SMOKE_ALERT_THRESHOLD_PPM} ppm`,
+        fireSafeCaption: 'No fire signal has exceeded the configured threshold.',
+        fireAlertCaption: 'A fire signal is currently being detected and requires inspection.',
+        systemInfoKicker: 'System information',
+        systemInfoTitle: 'Devices and operating stack',
+        systemInfoDescription: 'Summary of sensors, controller hardware and the system telemetry update interval.',
+        online: 'Online',
+        toast: {
+            success: 'Action completed',
+            error: 'Action failed',
+        },
+        alerts: {
+            modalTitle: 'System alert notification',
+            modalDescription: 'The system is detecting operating conditions beyond the configured safety threshold. Please inspect the site and confirm device status immediately.',
+            acknowledge: 'Confirm',
+            highTemp: 'Temperature has exceeded the configured safety threshold',
+            highSmoke: 'Smoke concentration has exceeded the monitoring threshold',
+            fireDetected: 'Fire signal detected - potential ignition risk',
+        },
+        chart: {
+            kicker: 'Real-time trend',
+            title: 'Temperature and smoke trend',
+            description: 'Displays the latest 30 data points to support faster detection of abnormal operating patterns.',
+            note: 'Latest 30 data points',
+            waiting: 'Waiting for incoming data...',
+            temperatureLine: 'Temperature (°C)',
+            smokeLine: 'Smoke level (ppm)',
+        },
+        stats: {
+            kicker: 'Stats & Insights',
+            title: 'Operational risk overview',
+            description: 'Summarises threshold breaches and safe-to-alert distribution for ongoing system supervision.',
+            records: 'records',
+            totalRecords: 'Total records',
+            fireCount: 'Fire signal events',
+            highTemp: 'High temperature events',
+            highSmoke: 'High smoke events',
+            tempAvgMax: 'Average / peak temperature',
+            smokeAvgMax: 'Average / peak smoke',
+            safe: 'Safe',
+            fireAlert: 'Fire risk',
+            noData: 'No statistical data available',
+        },
+        control: {
+            kicker: 'Manual control',
+            title: 'Control Actions',
+            description: 'Use only when supervised operational intervention is required.',
+            tag: 'Manual override',
+            warningTitle: 'Operational warning',
+            warningBody: 'The controls below can override AUTO behaviour and directly affect field devices. Execute them only after the area has been verified and a responsible operator is present.',
+            groups: {
+                water: 'Water system',
+                alert: 'Alarm and alerting',
+                system: 'System administration',
+            },
+            buttons: {
+                pump_on: 'Activate pump',
+                pump_off: 'Stop pump',
+                test_alarm: 'Run alarm test',
+                emergency_alert: 'Activate emergency mode',
+                emergency_off: 'Clear emergency mode',
+                full_test: 'Run full diagnostics',
+                reset_system: 'Restart system',
+                all_outputs_off: 'Disable all outputs',
+            },
+            descriptions: {
+                pump_on: 'Activate the suppression water pump',
+                pump_off: 'Stop pump operation',
+                test_alarm: 'Run buzzer and LED verification',
+                emergency_alert: 'Trigger emergency alert mode',
+                emergency_off: 'Return the system to AUTO mode',
+                full_test: 'Execute full device diagnostics',
+                reset_system: 'Restart the controller',
+                all_outputs_off: 'Disable LED, buzzer and pump outputs',
+            },
+            loading: 'Executing...',
+        },
+        systemInfo: [
+            { label: 'Gas sensor', value: 'MQ-2  ·  Smoke & flammable gas' },
+            { label: 'Temperature sensor', value: 'DHT20' },
+            { label: 'Controller', value: 'ESP32  ·  WiFi' },
+            { label: 'Update cycle', value: '~2 seconds  ·  MQTT' },
+        ],
+        feedback: {
+            updating: 'Updating...',
+            pump_on: 'Pump activation command has been submitted successfully.',
+            pump_off: 'Pump stop command has been submitted successfully.',
+            test_alarm: 'Alarm verification sequence is now in progress.',
+            reset_system: 'System restart command has been submitted.',
+            full_test: 'Full diagnostic sequence is now in progress.',
+            emergency_alert: 'Emergency alert mode has been activated.',
+            all_outputs_off: 'All output devices have been disabled. The system has returned to automatic mode.',
+            emergency_off: 'Emergency alert mode has been cleared. The system has returned to AUTO mode.',
+            error: 'Unable to complete the requested command. Please verify system connectivity and try again.',
+        },
+    },
+};
 
 const Dashboard = () => {
+    const [language, setLanguage] = useState('vi');
     const [latestData, setLatestData] = useState({
         temperature: 0,
         gasLevel: 0,
         fireDetected: false,
-        timestamp: ''
+        timestamp: '',
     });
     const [historyData, setHistoryData] = useState([]);
-    const [activeAlerts, setActiveAlerts] = useState([]);
     const [hazardModalDismissed, setHazardModalDismissed] = useState(false);
+    const [toast, setToast] = useState(null);
+    const copy = COPY[language];
+    const activeAlerts = useMemo(() => buildAlertMessages(latestData, copy.alerts), [copy.alerts, latestData]);
 
     useEffect(() => {
-        if (activeAlerts.length === 0) {
-            setHazardModalDismissed(false);
-        }
+        if (activeAlerts.length === 0) setHazardModalDismissed(false);
     }, [activeAlerts.length]);
+
+    useEffect(() => {
+        if (!toast) return undefined;
+
+        const timer = setTimeout(() => setToast(null), 3200);
+        return () => clearTimeout(timer);
+    }, [toast]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -82,36 +347,33 @@ const Dashboard = () => {
 
                 if (rawData && Array.isArray(rawData) && rawData.length > 0) {
                     const sortedData = [...rawData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    const latestSmoke = sortedData.find(item => item.topic && item.topic.includes('smoke'));
-                    const latestFlame = sortedData.find(item => item.topic && item.topic.includes('flame'));
-                    const latestDht = sortedData.find(item => item.topic && item.topic.includes('dht20'));
+                    const latestSmoke = sortedData.find(item => item.topic?.includes('smoke'));
+                    const latestFlame = sortedData.find(item => item.topic?.includes('flame'));
+                    const latestDht = sortedData.find(item => item.topic?.includes('dht20'));
 
                     const latestTemperature = latestDht ? Number(latestDht.mainValue || 0) : 0;
                     const latestGasLevel = latestSmoke ? Number(latestSmoke.mainValue || 0) : 0;
                     const isFire = latestFlame ? Number(latestFlame.mainValue || 0) >= FLAME_ALERT_PERCENT : false;
-                    const latestTimestamp = latestDht
-                        ? latestDht.timestamp
-                        : (latestSmoke ? latestSmoke.timestamp : (latestFlame ? latestFlame.timestamp : ''));
+                    const latestTimestamp = latestDht?.timestamp ?? latestSmoke?.timestamp ?? latestFlame?.timestamp ?? '';
 
                     setLatestData({
                         temperature: Number(latestTemperature.toFixed(1)),
                         gasLevel: Number(latestGasLevel.toFixed(1)),
                         fireDetected: isFire,
-                        timestamp: latestTimestamp
+                        timestamp: latestTimestamp,
                     });
-
                     setHistoryData(buildHistorySeries(rawData));
-                    setActiveAlerts(buildAlertMessages({
-                        temperature: latestTemperature,
-                        gasLevel: latestGasLevel,
-                        fireDetected: isFire
-                    }));
                 } else {
+                    setLatestData({
+                        temperature: 0,
+                        gasLevel: 0,
+                        fireDetected: false,
+                        timestamp: '',
+                    });
                     setHistoryData([]);
-                    setActiveAlerts([]);
                 }
             } catch (err) {
-                console.error("Lỗi lấy dữ liệu:", err);
+                console.error('Lỗi lấy dữ liệu:', err);
             }
         };
 
@@ -121,156 +383,239 @@ const Dashboard = () => {
     }, []);
 
     const formatTime = (timeStr) => {
-        if (!timeStr) return "Đang cập nhật...";
-        return new Date(timeStr).toLocaleString('vi-VN');
+        if (!timeStr) return copy.feedback.updating;
+        return new Date(timeStr).toLocaleString(copy.locale);
+    };
+
+    const showToast = (type, message) => {
+        setToast({
+            id: Date.now(),
+            type,
+            title: copy.toast[type],
+            message,
+        });
     };
 
     const handleControl = async (action) => {
         try {
             let response;
-            switch(action) {
-                case 'pump_on': response = await sensorApi.pumpOn(); alert('✅ Đã bật bơm nước'); break;
-                case 'pump_off': response = await sensorApi.pumpOff(); alert('✅ Đã tắt bơm nước'); break;
-                case 'test_alarm': response = await sensorApi.testAlarm(); alert('✅ Đang kiểm tra còi báo...'); break;
-                case 'reset_system': response = await sensorApi.resetSystem(); alert('✅ Đã reset hệ thống'); break;
-                case 'full_test': response = await sensorApi.fullTest(); alert('✅ Đang thực hiện test đầy đủ...'); break;
-                case 'emergency_alert': response = await sensorApi.emergencyAlert(); alert('🚨 Đã kích hoạt cảnh báo khẩn cấp!'); break;
-                case 'all_outputs_off': response = await sensorApi.allOutputsOff(); alert('✅ Đã tắt LED, còi và bơm. Hệ thống về chế độ tự động.'); break;
-                case 'emergency_off': response = await sensorApi.emergencyOff(); alert('✅ Đã tắt cảnh báo khẩn cấp, hệ thống quay lại AUTO'); break;
-                default: response = await sensorApi.control(action);
+            switch (action) {
+                case 'pump_on':        response = await sensorApi.pumpOn();         showToast('success', copy.feedback.pump_on); break;
+                case 'pump_off':       response = await sensorApi.pumpOff();        showToast('success', copy.feedback.pump_off); break;
+                case 'test_alarm':     response = await sensorApi.testAlarm();      showToast('success', copy.feedback.test_alarm); break;
+                case 'reset_system':   response = await sensorApi.resetSystem();    showToast('success', copy.feedback.reset_system); break;
+                case 'full_test':      response = await sensorApi.fullTest();       showToast('success', copy.feedback.full_test); break;
+                case 'emergency_alert':response = await sensorApi.emergencyAlert(); showToast('success', copy.feedback.emergency_alert); break;
+                case 'all_outputs_off':response = await sensorApi.allOutputsOff();  showToast('success', copy.feedback.all_outputs_off); break;
+                case 'emergency_off':  response = await sensorApi.emergencyOff();   showToast('success', copy.feedback.emergency_off); break;
+                default:               response = await sensorApi.control(action);
             }
             console.log('Control response:', response);
         } catch (error) {
             console.error('Control error:', error);
-            alert('❌ Lỗi: Không thể thực hiện lệnh. Vui lòng kiểm tra kết nối với hệ thống.');
+            showToast('error', copy.feedback.error);
         }
     };
 
-    const showHazardModal = activeAlerts.length > 0 && !hazardModalDismissed;
+    const isAlert = activeAlerts.length > 0;
+    const showHazardModal = isAlert && !hazardModalDismissed;
+    const latestTimestampLabel = formatTime(latestData.timestamp);
+    const peakTemperature = historyData.length > 0
+        ? Math.max(...historyData.map((item) => Number(item.temperature || 0))).toFixed(1)
+        : '0.0';
+    const peakSmoke = historyData.length > 0
+        ? Math.max(...historyData.map((item) => Number(item.gasLevel || 0))).toFixed(0)
+        : '0';
+    const statusLabel = isAlert ? copy.headerAlert : copy.headerSafe;
+    const heroStatus = isAlert ? copy.statusAlert : copy.statusSafe;
+    const heroStatusDescription = isAlert
+        ? activeAlerts.map((item) => item.message).join(' · ')
+        : copy.statusSafeHelp(peakSmoke);
 
     return (
-        <div style={{ padding: '30px', backgroundColor: '#f4f7f6', minHeight: '100vh' }}>
+        <div className={`dashboard-shell${isAlert ? ' dashboard-shell--alert' : ''}`}>
+            {toast && (
+                <div className={`dashboard-toast dashboard-toast--${toast.type}`} role="status" aria-live="polite">
+                    <div className="dashboard-toast__content">
+                        <strong>{toast.title}</strong>
+                        <p>{toast.message}</p>
+                    </div>
+                    <button
+                        type="button"
+                        className="dashboard-toast__close"
+                        onClick={() => setToast(null)}
+                        aria-label="Dismiss notification"
+                    >
+                        x
+                    </button>
+                </div>
+            )}
             {showHazardModal && (
                 <div
+                    className="dashboard-modal-overlay"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="hazard-modal-title"
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 1000,
-                        backgroundColor: 'rgba(0,0,0,0.45)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px',
-                    }}
                     onClick={() => setHazardModalDismissed(true)}
                 >
                     <div
-                        style={{
-                            backgroundColor: '#fff',
-                            borderRadius: '12px',
-                            maxWidth: '420px',
-                            width: '100%',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                            borderTop: '5px solid #c0392b',
-                            overflow: 'hidden',
-                        }}
+                        className="dashboard-modal glass-panel"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div style={{ padding: '22px 24px 16px' }}>
-                            <h2 id="hazard-modal-title" style={{ margin: '0 0 12px', color: '#c0392b', fontSize: '20px' }}>
-                                Cảnh báo nguy hiểm
+                        <div className="dashboard-modal__bar" />
+                        <div>
+                            <h2 id="hazard-modal-title" className="dashboard-modal__title">
+                                {copy.alerts.modalTitle}
                             </h2>
-                            <p style={{ margin: '0 0 16px', color: '#2c3e50', fontSize: '14px', lineHeight: 1.5 }}>
-                                Hệ thống phát hiện tình huống bất thường. Vui lòng kiểm tra ngay.
+                            <p className="dashboard-modal__description">
+                                {copy.alerts.modalDescription}
                             </p>
-                            <ul style={{ margin: 0, paddingLeft: '20px', color: '#34495e', fontSize: '14px', lineHeight: 1.7 }}>
+                            <div className="dashboard-modal__list">
                                 {activeAlerts.map((a) => (
-                                    <li key={a.code} style={{ borderLeft: `3px solid ${a.color}`, paddingLeft: '10px', listStyle: 'none', marginBottom: '8px' }}>
-                                        {a.message}
-                                    </li>
+                                    <div key={a.code} className="dashboard-modal__item">
+                                        <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: a.color, flexShrink: 0 }} />
+                                        <span>{a.message}</span>
+                                    </div>
                                 ))}
-                            </ul>
-                        </div>
-                        <div style={{ padding: '12px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: '10px', backgroundColor: '#f8f9fa' }}>
+                            </div>
                             <button
+                                className="dashboard-modal__button"
                                 type="button"
                                 onClick={() => setHazardModalDismissed(true)}
-                                style={{
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    backgroundColor: '#c0392b',
-                                    color: '#fff',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    fontSize: '14px',
-                                }}
                             >
-                                Đã xem
+                                {copy.alerts.acknowledge}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Header Section */}
-            <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-                <div>
-                    <h1 style={{ margin: '0 0 10px', color: '#2c3e50', fontSize: '32px' }}>🔥 Dashboard Hệ thống AFES</h1>
-                    <p style={{ margin: 0, color: '#7f8c8d', fontSize: '14px' }}>Automatic Fire Extinguisher System - Giám sát thời gian thực</p>
-                </div>
-                <div style={{ backgroundColor: '#fff', padding: '15px 25px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                    <p style={{ margin: 0, color: '#7f8c8d', fontSize: '12px' }}>🕒 Cập nhật lần cuối</p>
-                    <p style={{ margin: '5px 0 0', color: '#2c3e50', fontSize: '16px', fontWeight: 'bold' }}>{formatTime(latestData.timestamp)}</p>
-                </div>
-            </div>
+            <div className="dashboard-page">
+                <header className="dashboard-header">
+                    <div className="dashboard-brand">
+                        <div className="dashboard-brand-mark">
+                            <img src={LOGO_SRC} alt="AFES logo" className="dashboard-brand-logo" />
+                        </div>
+                        <div className="dashboard-brand-copy">
+                            <strong>{copy.brandName}</strong>
+                            <span>{copy.brandSubtitle}</span>
+                        </div>
+                    </div>
+                    <div className="dashboard-header-right">
+                        <div className="lang-toggle" aria-label="Language switcher">
+                            <Globe2 size={14} />
+                            <button
+                                type="button"
+                                className={`lang-toggle__button${language === 'vi' ? ' is-active' : ''}`}
+                                onClick={() => setLanguage('vi')}
+                            >
+                                VI
+                            </button>
+                            <button
+                                type="button"
+                                className={`lang-toggle__button${language === 'en' ? ' is-active' : ''}`}
+                                onClick={() => setLanguage('en')}
+                            >
+                                EN
+                            </button>
+                        </div>
+                        <div className={`status-pill ${isAlert ? 'status-pill--alert' : 'status-pill--safe'}`}>
+                            <div className="status-pill__dot" />
+                            <span>{statusLabel}</span>
+                        </div>
+                        <span className="dashboard-timestamp">{latestTimestampLabel}</span>
+                    </div>
+                </header>
 
-            <div style={{ marginBottom: '20px' }}>
-                <div style={{
-                    backgroundColor: activeAlerts.length > 0 ? '#fdecea' : '#eafaf1',
-                    borderLeft: `5px solid ${activeAlerts.length > 0 ? '#e74c3c' : '#2ecc71'}`,
-                    borderRadius: '8px',
-                    padding: '14px 18px',
-                    color: '#2c3e50'
-                }}>
-                    {activeAlerts.length > 0 ? (
-                        <p style={{ margin: 0, fontWeight: 'bold' }}>
-                            🚨 Cảnh báo: {activeAlerts.map(item => item.message).join(' | ')}
-                        </p>
-                    ) : (
-                        <p style={{ margin: 0, fontWeight: 'bold', color: '#27ae60' }}>
-                            ✅ Hệ thống an toàn - AUTO MODE
-                        </p>
+                <main>
+                    <section className="hero-panel glass-panel">
+                        <div className="hero-copy">
+                            <div className="hero-eyebrow">
+                                <Activity size={14} />
+                                {copy.liveBadge}
+                            </div>
+                            <h1 className="hero-title">
+                                {copy.title}
+                            </h1>
+                            <p className="hero-description">
+                                {copy.description}
+                            </p>
+                            <div className="hero-badges">
+                                <div className="hero-badge">{copy.updateBadge}</div>
+                                <div className="hero-badge">{historyData.length} {copy.recentRecords}</div>
+                                <div className="hero-badge">{activeAlerts.length} {copy.activeAlerts}</div>
+                            </div>
+                        </div>
+
+                        <div className="hero-side">
+                            <div className="hero-side-card hero-side-card--accent">
+                                <div className="metric-kicker">{copy.tempPeakTitle}</div>
+                                <div className="metric-value">{peakTemperature}°C</div>
+                                <div className="metric-helper">{copy.tempPeakHelp}</div>
+                            </div>
+                            <div className={`hero-side-card ${isAlert ? 'hero-side-card--danger' : ''}`}>
+                                <div className="metric-kicker">{copy.statusTitle}</div>
+                                <div className="metric-value">{heroStatus}</div>
+                                <div className="metric-helper">{heroStatusDescription}</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {isAlert && (
+                        <div className="alert-banner">
+                            <BellRing size={16} />
+                            <div className="alert-banner__dot" />
+                            <p>{activeAlerts.map((item) => item.message).join('  ·  ')}</p>
+                        </div>
                     )}
-                </div>
-            </div>
 
-            {/* Current Status Cards */}
-            <div style={{ marginBottom: '30px' }}>
-                <h2 style={{ margin: '0 0 15px', color: '#2c3e50', fontSize: '20px' }}>📍 Trạng thái hiện tại</h2>
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    <SensorCard title="Nhiệt độ hiện tại" value={latestData.temperature} unit="°C" icon="🌡️" color="#e74c3c" />
-                    <SensorCard title="Nồng độ khói" value={latestData.gasLevel} unit="ppm" icon="☁️" color="#f39c12" />
-                    <SensorCard title="Trạng thái cháy" value={latestData.fireDetected ? "CẢNH BÁO" : "AN TOÀN"} unit="" icon="🔥" color={latestData.fireDetected ? "#c0392b" : "#2ecc71"} />
-                </div>
-            </div>
+                    <section className="section-stack">
+                        <div className="section-kicker">{copy.currentStatus}</div>
+                        <div className="card-grid">
+                            <SensorCard
+                                title={copy.temperature}
+                                value={latestData.temperature}
+                                unit="°C"
+                                color="#fb7185"
+                                icon={Thermometer}
+                                status={latestData.temperature >= TEMP_ALERT_THRESHOLD_C ? copy.statusHigh : copy.statusStable}
+                                caption={copy.tempCaption}
+                            />
+                            <SensorCard
+                                title={copy.smoke}
+                                value={latestData.gasLevel}
+                                unit="ppm"
+                                color="#f59e0b"
+                                icon={Wind}
+                                status={latestData.gasLevel >= MQ2_SMOKE_ALERT_THRESHOLD_PPM ? copy.statusWarning : copy.statusNormal}
+                                caption={copy.smokeCaption}
+                            />
+                            <SensorCard
+                                title={copy.fire}
+                                value={latestData.fireDetected ? copy.fireAlertValue : copy.fireSafeValue}
+                                unit=""
+                                color={latestData.fireDetected ? '#fb7185' : '#22c55e'}
+                                icon={latestData.fireDetected ? Flame : ShieldCheck}
+                                status={latestData.fireDetected ? copy.statusCritical : copy.statusWatch}
+                                caption={latestData.fireDetected ? copy.fireAlertCaption : copy.fireSafeCaption}
+                            />
+                        </div>
+                    </section>
 
-            <div style={{ marginBottom: '30px' }}><ControlPanel onControl={handleControl} /></div>
-            <div style={{ marginBottom: '30px' }}><TrendChart data={historyData} /></div>
-            <div style={{ marginBottom: '30px' }}><AlertStats historyData={historyData} /></div>
+                    <section className="dashboard-grid" style={{ marginTop: '18px' }}>
+                        <div className="grid-col-8">
+                            <TrendChart data={historyData} copy={copy.chart} locale={copy.locale} />
+                        </div>
 
-            {/* System Info */}
-            <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginTop: '20px' }}>
-                <h3 style={{ margin: '0 0 15px', color: '#2c3e50', fontSize: '18px' }}>ℹ️ Thông tin hệ thống</h3>
-                <div style={{ color: '#7f8c8d', fontSize: '14px', lineHeight: '1.8' }}>
-                    <p style={{ margin: '5px 0' }}><strong>Cảm biến khí:</strong> MQ-2 (Phát hiện khói và khí dễ cháy)</p>
-                    <p style={{ margin: '5px 0' }}><strong>Cảm biến nhiệt độ:</strong> DHT20</p>
-                    <p style={{ margin: '5px 0' }}><strong>Vi điều khiển:</strong> ESP32 với kết nối WiFi</p>
-                    <p style={{ margin: '5px 0' }}><strong>Cập nhật dữ liệu:</strong> Khoảng 2 giây (dashboard và thiết bị gửi MQTT)</p>
-                </div>
+                        <div className="grid-col-4">
+                            <ControlPanel onControl={handleControl} copy={copy.control} />
+                        </div>
+
+                        <div className="grid-col-12">
+                            <AlertStats historyData={historyData} copy={copy.stats} />
+                        </div>
+                    </section>
+                </main>
             </div>
         </div>
     );
