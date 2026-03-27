@@ -70,7 +70,7 @@ const TrendChart = ({ data, copy, locale = 'vi-VN' }) => {
                                 tick={{ fontSize: 11, fill: '#7f95b6' }}
                                 axisLine={false}
                                 tickLine={false}
-                                label={{ value: 'ppm', position: 'insideTopRight', offset: 8, fill: '#8ea2c1', fontSize: 11 }}
+                                label={{ value: 'ppm (total)', position: 'insideTopRight', offset: 8, fill: '#8ea2c1', fontSize: 11 }}
                             />
                             <Tooltip
                                 formatter={(value, name) => {

@@ -11,22 +11,50 @@ import {
     MQ2_SMOKE_ALERT_THRESHOLD_PPM,
 } from '../constants/sensors';
 
+/** CO + LPG + SMOKE from one MQ2 row (`details` JSON or fallback to mainValue as SMOKE). */
+const parseMq2GasTotals = (item) => {
+    if (!item) return { co: 0, lpg: 0, smoke: 0 };
+    const fallbackSmoke = Number(item.mainValue || 0);
+    if (!item.details) return { co: 0, lpg: 0, smoke: fallbackSmoke };
+    try {
+        const parsed = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
+        return {
+            co: Number(parsed?.CO ?? 0),
+            lpg: Number(parsed?.LPG ?? 0),
+            smoke: Number(parsed?.SMOKE ?? fallbackSmoke),
+        };
+    } catch (_) {
+        return { co: 0, lpg: 0, smoke: fallbackSmoke };
+    }
+};
+
+const sumThree = (t) => t.co + t.lpg + t.smoke;
+
 const buildHistorySeries = (rawData) => {
     if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
     const sorted = [...rawData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     let currentTemperature = 0;
     let currentGasLevel = 0;
+    let currentMq2_1 = { co: 0, lpg: 0, smoke: 0 };
+    let currentMq2_2 = { co: 0, lpg: 0, smoke: 0 };
     let currentFireDetected = false;
 
     return sorted.map((item) => {
         const topic = item.topic || '';
         const value = Number(item.mainValue || 0);
+        const sensorName = item.sensorName || '';
 
         if (topic.includes('dht20')) {
             currentTemperature = value;
         } else if (topic.includes('smoke')) {
-            currentGasLevel = value;
+            const t = parseMq2GasTotals(item);
+            if (sensorName === 'mq2_1') currentMq2_1 = t;
+            else if (sensorName === 'mq2_2') currentMq2_2 = t;
+            else currentGasLevel = sumThree(t);
+            if (sensorName === 'mq2_1' || sensorName === 'mq2_2') {
+                currentGasLevel = sumThree(currentMq2_1) + sumThree(currentMq2_2);
+            }
         } else if (topic.includes('flame')) {
             currentFireDetected = value >= FLAME_ALERT_PERCENT;
         }
@@ -110,12 +138,12 @@ const COPY = {
         },
         chart: {
             kicker: 'Diễn biến thời gian thực',
-            title: 'Xu hướng nhiệt độ và nồng độ khói',
-            description: 'Biểu đồ tổng hợp 30 mốc dữ liệu gần nhất để hỗ trợ theo dõi biến động bất thường.',
+            title: 'Xu hướng nhiệt độ và tổng khí (MQ-2)',
+            description: 'Đường khí là tổng CO + LPG + SMOKE của cả mq2_1 và mq2_2 (30 mốc gần nhất).',
             note: '30 mốc dữ liệu gần nhất',
             waiting: 'Đang chờ dữ liệu đầu vào...',
             temperatureLine: 'Nhiệt độ (°C)',
-            smokeLine: 'Nồng độ khói (ppm)',
+            smokeLine: 'Tổng khí CO+LPG+SMOKE (ppm)',
         },
         stats: {
             kicker: 'Thống kê và phân tích',
@@ -237,12 +265,12 @@ const COPY = {
         },
         chart: {
             kicker: 'Real-time trend',
-            title: 'Temperature and smoke trend',
-            description: 'Displays the latest 30 data points to support faster detection of abnormal operating patterns.',
+            title: 'Temperature and total gas (MQ-2)',
+            description: 'Gas line is CO + LPG + SMOKE summed for mq2_1 and mq2_2 (latest 30 points).',
             note: 'Latest 30 data points',
             waiting: 'Waiting for incoming data...',
             temperatureLine: 'Temperature (°C)',
-            smokeLine: 'Smoke level (ppm)',
+            smokeLine: 'Total gas CO+LPG+SMOKE (ppm)',
         },
         stats: {
             kicker: 'Stats & Insights',
@@ -347,14 +375,26 @@ const Dashboard = () => {
 
                 if (rawData && Array.isArray(rawData) && rawData.length > 0) {
                     const sortedData = [...rawData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    const latestSmoke = sortedData.find(item => item.topic?.includes('smoke'));
+                    const latestSmokeMq2_1 = sortedData.find(item => item.topic?.includes('smoke') && item.sensorName === 'mq2_1');
+                    const latestSmokeMq2_2 = sortedData.find(item => item.topic?.includes('smoke') && item.sensorName === 'mq2_2');
+                    const latestSmokeLegacy = sortedData.find(item => item.topic?.includes('smoke') && !item.sensorName);
                     const latestFlame = sortedData.find(item => item.topic?.includes('flame'));
                     const latestDht = sortedData.find(item => item.topic?.includes('dht20'));
 
                     const latestTemperature = latestDht ? Number(latestDht.mainValue || 0) : 0;
-                    const latestGasLevel = latestSmoke ? Number(latestSmoke.mainValue || 0) : 0;
+                    const mq2_1_total = sumThree(parseMq2GasTotals(latestSmokeMq2_1));
+                    const mq2_2_total = sumThree(parseMq2GasTotals(latestSmokeMq2_2));
+                    let latestGasLevel = mq2_1_total + mq2_2_total;
+                    if (!latestSmokeMq2_1 && !latestSmokeMq2_2 && latestSmokeLegacy) {
+                        latestGasLevel = sumThree(parseMq2GasTotals(latestSmokeLegacy));
+                    }
                     const isFire = latestFlame ? Number(latestFlame.mainValue || 0) >= FLAME_ALERT_PERCENT : false;
-                    const latestTimestamp = latestDht?.timestamp ?? latestSmoke?.timestamp ?? latestFlame?.timestamp ?? '';
+                    const latestTimestamp = latestDht?.timestamp
+                        ?? latestSmokeMq2_1?.timestamp
+                        ?? latestSmokeMq2_2?.timestamp
+                        ?? latestSmokeLegacy?.timestamp
+                        ?? latestFlame?.timestamp
+                        ?? '';
 
                     setLatestData({
                         temperature: Number(latestTemperature.toFixed(1)),
