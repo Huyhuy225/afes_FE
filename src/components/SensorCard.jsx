@@ -1,24 +1,30 @@
 import React from 'react';
 
-const SensorCard = ({ title, value, unit, icon, color }) => {
+const SensorCard = ({ title, value, unit, color, icon: Icon, status, caption }) => {
     return (
-        <div style={{
-            padding: '20px',
-            borderRadius: '12px',
-            backgroundColor: '#fff',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            borderLeft: `6px solid ${color}`,
-            flex: 1,
-            minWidth: '200px'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>{icon}</span>
-                <h3 style={{ margin: 0, color: '#7f8c8d', fontSize: '16px' }}>{title}</h3>
+        <article className="sensor-card glass-panel" style={{ '--accent': color || '#f8fbff' }}>
+            <div className="sensor-card__top">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {Icon && (
+                        <div className="sensor-card__icon">
+                            <Icon size={18} />
+                        </div>
+                    )}
+                    <div>
+                        <div className="data-label">{title}</div>
+                    </div>
+                </div>
+                {status && <div className="sensor-card__status">{status}</div>}
             </div>
-            <h2 style={{ margin: '10px 0 0', fontSize: '28px', color: '#2c3e50' }}>
-                {value} <span style={{ fontSize: '18px' }}>{unit}</span>
-            </h2>
-        </div>
+
+            <div className="sensor-card__body">
+                <div className="sensor-card__value">
+                    <strong>{value}</strong>
+                    {unit && <span>{unit}</span>}
+                </div>
+                {caption && <div className="sensor-card__caption">{caption}</div>}
+            </div>
+        </article>
     );
 };
 

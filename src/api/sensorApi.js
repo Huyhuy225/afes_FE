@@ -14,5 +14,7 @@ const sensorApi = {
     resetSystem: () => axiosClient.post('/control/reset'),
     fullTest: () => axiosClient.post('/control/full-test'),
     emergencyAlert: () => axiosClient.post('/control/emergency'),
+    emergencyOff: () => axiosClient.post('/control/emergency-off'),
+    allOutputsOff: () => axiosClient.post('/control/outputs-off'),
 };
 export default sensorApi;
