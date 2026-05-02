@@ -3,30 +3,46 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(31, 79, 147, 0.10), transparent 36%),
+    radial-gradient(circle at top right, rgba(91, 74, 136, 0.08), transparent 34%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 48%, var(--bg) 100%);
 }
 
 .login-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 22px;
+  border-radius: 22px;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
 }
 
-.login-card h1 {
-  text-align: center;
-  color: #333;
-  margin-bottom: 1.5rem;
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.login-brand .dashboard-brand-mark {
+  width: 64px;
+  height: 44px;
+}
+
+.login-title {
+  margin: 6px 0 16px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .error-message {
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  color: #721c24;
+  background: rgba(255, 240, 242, 0.86);
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  color: rgba(91, 24, 27, 0.95);
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 12px;
   margin-bottom: 1rem;
 }
 
@@ -37,34 +53,39 @@
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #333;
-  font-weight: 500;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .form-group input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 14px;
   box-sizing: border-box;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+  border-color: rgba(31, 79, 147, 0.26);
+  box-shadow: 0 0 0 4px rgba(31, 79, 147, 0.10);
 }
 
 .login-card button {
   width: 100%;
   padding: 0.75rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #295ea8, #1f4f93);
   color: white;
   border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -81,9 +102,9 @@
 .demo-credentials {
   margin-top: 2rem;
   padding-top: 1rem;
-  border-top: 1px solid #ddd;
-  font-size: 0.875rem;
-  color: #666;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-2);
 }
 
 .demo-credentials p {

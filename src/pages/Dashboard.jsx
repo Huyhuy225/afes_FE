@@ -25,7 +25,7 @@ const parseMq2GasTotals = (item) => {
             lpg: Number(parsed?.LPG ?? 0),
             smoke: Number(parsed?.SMOKE ?? fallbackSmoke),
         };
-    } catch (_) {
+    } catch {
         return { co: 0, lpg: 0, smoke: fallbackSmoke };
     }
 };
@@ -346,6 +346,9 @@ const COPY = {
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const user = useMemo(() => JSON.parse(localStorage.getItem('user') || '{}'), []);
+    const role = String((typeof user.role === 'string' ? user.role : user?.role?.name) || '').replace(/^ROLE_/, '');
+    const isAdmin = role === 'ADMIN';
     const [language, setLanguage] = useState('vi');
     const [latestData, setLatestData] = useState({
         temperature: 0,
@@ -354,7 +357,7 @@ const Dashboard = () => {
         timestamp: '',
     });
     const [historyData, setHistoryData] = useState([]);
-    const [hazardModalDismissed, setHazardModalDismissed] = useState(false);
+    const [dismissedAlertKey, setDismissedAlertKey] = useState(null);
     const [toast, setToast] = useState(null);
     const copy = COPY[language];
     const activeAlerts = useMemo(() => buildAlertMessages(latestData, copy.alerts), [copy.alerts, latestData]);
@@ -366,10 +369,6 @@ const Dashboard = () => {
         delete axiosClient.defaults.headers.common['Authorization'];
         navigate('/login');
     };
-
-    useEffect(() => {
-        if (activeAlerts.length === 0) setHazardModalDismissed(false);
-    }, [activeAlerts.length]);
 
     useEffect(() => {
         if (!toast) return undefined;
@@ -469,7 +468,8 @@ const Dashboard = () => {
     };
 
     const isAlert = activeAlerts.length > 0;
-    const showHazardModal = isAlert && !hazardModalDismissed;
+    const alertKey = useMemo(() => activeAlerts.map((a) => a.code).join('|'), [activeAlerts]);
+    const showHazardModal = isAlert && dismissedAlertKey !== alertKey;
     const latestTimestampLabel = formatTime(latestData.timestamp);
     const peakTemperature = historyData.length > 0
         ? Math.max(...historyData.map((item) => Number(item.temperature || 0))).toFixed(1)
@@ -482,6 +482,16 @@ const Dashboard = () => {
     const heroStatusDescription = isAlert
         ? activeAlerts.map((item) => item.message).join(' · ')
         : copy.statusSafeHelp(peakSmoke);
+
+    const userActions = useMemo(
+        () => ([
+            {
+                group: 'alert',
+                buttons: [{ action: 'test_alarm', tone: 'warning' }],
+            },
+        ]),
+        [],
+    );
 
     return (
         <div className={`dashboard-shell${isAlert ? ' dashboard-shell--alert' : ''}`}>
@@ -507,7 +517,7 @@ const Dashboard = () => {
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="hazard-modal-title"
-                    onClick={() => setHazardModalDismissed(true)}
+                    onClick={() => setDismissedAlertKey(alertKey)}
                 >
                     <div
                         className="dashboard-modal glass-panel"
@@ -532,7 +542,7 @@ const Dashboard = () => {
                             <button
                                 className="dashboard-modal__button"
                                 type="button"
-                                onClick={() => setHazardModalDismissed(true)}
+                                onClick={() => setDismissedAlertKey(alertKey)}
                             >
                                 {copy.alerts.acknowledge}
                             </button>
@@ -573,6 +583,10 @@ const Dashboard = () => {
                         <div className={`status-pill ${isAlert ? 'status-pill--alert' : 'status-pill--safe'}`}>
                             <div className="status-pill__dot" />
                             <span>{statusLabel}</span>
+                        </div>
+                        <div className={`role-pill ${isAdmin ? 'role-pill--admin' : 'role-pill--user'}`}>
+                            {isAdmin ? <ShieldCheck size={14} /> : <Activity size={14} />}
+                            <span>{isAdmin ? 'ADMIN' : 'USER'}</span>
                         </div>
                         <span className="dashboard-timestamp">{latestTimestampLabel}</span>
                         <button type="button" className="dashboard-logout-btn" onClick={handleLogout}>
@@ -662,7 +676,11 @@ const Dashboard = () => {
                         </div>
 
                         <div className="grid-col-4">
-                            <ControlPanel onControl={handleControl} copy={copy.control} />
+                            <ControlPanel
+                                onControl={handleControl}
+                                copy={copy.control}
+                                actions={isAdmin ? undefined : userActions}
+                            />
                         </div>
 
                         <div className="grid-col-12">

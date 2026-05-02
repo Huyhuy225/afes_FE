@@ -1,7 +1,28 @@
-import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+    AlertTriangle,
+    Droplet,
+    DropletOff,
+    PowerOff,
+    RefreshCcw,
+    ShieldAlert,
+    ShieldOff,
+    Siren,
+    TestTube2,
+} from 'lucide-react';
 
-const ACTIONS = [
+const ACTION_ICONS = {
+    pump_on: Droplet,
+    pump_off: DropletOff,
+    test_alarm: Siren,
+    emergency_alert: ShieldAlert,
+    emergency_off: ShieldOff,
+    full_test: TestTube2,
+    reset_system: RefreshCcw,
+    all_outputs_off: PowerOff,
+};
+
+const DEFAULT_ACTIONS = [
     {
         group: 'water',
         buttons: [
@@ -27,8 +48,21 @@ const ACTIONS = [
     },
 ];
 
-const ControlPanel = ({ onControl, copy }) => {
+const ControlPanel = ({ onControl, copy, actions, allowedActions }) => {
     const [loading, setLoading] = useState(null);
+
+    const resolvedActions = useMemo(() => {
+        const base = Array.isArray(actions) && actions.length > 0 ? actions : DEFAULT_ACTIONS;
+        if (!Array.isArray(allowedActions) || allowedActions.length === 0) return base;
+
+        const allowed = new Set(allowedActions);
+        return base
+            .map((group) => ({
+                ...group,
+                buttons: (group.buttons || []).filter((btn) => allowed.has(btn.action)),
+            }))
+            .filter((group) => (group.buttons || []).length > 0);
+    }, [actions, allowedActions]);
 
     const handleControl = async (action) => {
         setLoading(action);
@@ -65,27 +99,33 @@ const ControlPanel = ({ onControl, copy }) => {
             </div>
 
             <div className="control-groups">
-                {ACTIONS.map((group) => (
+                {resolvedActions.map((group) => (
                     <div key={group.group} className="control-group">
                         <div className="control-group__head">
                             <div className="control-subtitle">{copy.groups[group.group]}</div>
                         </div>
                         <div className="control-buttons">
-                            {group.buttons.map(({ action, tone }) => (
-                                <button
-                                    className={`control-button control-button--${tone}${loading === action ? ' is-loading' : ''}`}
-                                    key={action}
-                                    onClick={() => handleControl(action)}
-                                    disabled={loading !== null}
-                                    title={copy.descriptions[action]}
-                                    style={{
-                                        opacity: loading !== null && loading !== action ? 0.5 : 1,
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {loading === action ? copy.loading : copy.buttons[action]}
-                                </button>
-                            ))}
+                            {group.buttons.map(({ action, tone }) => {
+                                const Icon = ACTION_ICONS[action];
+                                const label = loading === action ? copy.loading : copy.buttons[action];
+
+                                return (
+                                    <button
+                                        className={`control-button control-button--${tone}${loading === action ? ' is-loading' : ''}`}
+                                        key={action}
+                                        onClick={() => handleControl(action)}
+                                        disabled={loading !== null}
+                                        title={copy.descriptions[action]}
+                                        style={{
+                                            opacity: loading !== null && loading !== action ? 0.5 : 1,
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {Icon ? <Icon size={16} /> : null}
+                                        {label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 ))}

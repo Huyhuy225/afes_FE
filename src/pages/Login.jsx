@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import '../styles/Login.css';
 
+const LOGO_SRC = `${import.meta.env.BASE_URL}afes-logo.png`;
+
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -55,8 +57,18 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      <div className="login-card">
-        <h1>AFES Login</h1>
+      <div className="login-card glass-panel">
+        <div className="login-brand">
+          <div className="dashboard-brand-mark">
+            <img src={LOGO_SRC} alt="AFES logo" className="dashboard-brand-logo" />
+          </div>
+          <div className="dashboard-brand-copy">
+            <strong>AFES Dashboard</strong>
+            <span>Fire Alarm Systems</span>
+          </div>
+        </div>
+
+        <h1 className="login-title">Sign in</h1>
         {error && <div className="error-message">{error}</div>}
         
         <form onSubmit={handleLogin}>
