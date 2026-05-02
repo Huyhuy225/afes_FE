@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Activity, BellRing, Flame, Globe2, ShieldCheck, Thermometer, Wind } from 'lucide-react';
+import axiosClient from '../api/axiosClient';
 import sensorApi from '../api/sensorApi';
 import SensorCard from '../components/SensorCard';
 import TrendChart from '../components/TrendChart';
@@ -343,6 +345,7 @@ const COPY = {
 };
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [language, setLanguage] = useState('vi');
     const [latestData, setLatestData] = useState({
         temperature: 0,
@@ -355,6 +358,14 @@ const Dashboard = () => {
     const [toast, setToast] = useState(null);
     const copy = COPY[language];
     const activeAlerts = useMemo(() => buildAlertMessages(latestData, copy.alerts), [copy.alerts, latestData]);
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        delete axiosClient.defaults.headers.common.Authorization;
+        delete axiosClient.defaults.headers.common['Authorization'];
+        navigate('/login');
+    };
 
     useEffect(() => {
         if (activeAlerts.length === 0) setHazardModalDismissed(false);
@@ -564,6 +575,9 @@ const Dashboard = () => {
                             <span>{statusLabel}</span>
                         </div>
                         <span className="dashboard-timestamp">{latestTimestampLabel}</span>
+                        <button type="button" className="dashboard-logout-btn" onClick={handleLogout}>
+                            Logout
+                        </button>
                     </div>
                 </header>
 
