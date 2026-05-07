@@ -10,7 +10,7 @@ const TrendChart = ({ data, copy, locale = 'vi-VN' }) => {
                 second: '2-digit',
             }),
             temperature: Number(item.temperature || 0),
-            gasLevel: Number(item.gasLevel || 0),
+            smokeLevel: Number(item.smokeLevel || 0),
             fullTimestamp: item.timestamp,
         })).slice(-30)
         : [];
@@ -70,7 +70,7 @@ const TrendChart = ({ data, copy, locale = 'vi-VN' }) => {
                                 tick={{ fontSize: 11, fill: '#7f95b6' }}
                                 axisLine={false}
                                 tickLine={false}
-                                label={{ value: 'ppm (total)', position: 'insideTopRight', offset: 8, fill: '#8ea2c1', fontSize: 11 }}
+                                label={{ value: 'ppm', position: 'insideTopRight', offset: 8, fill: '#8ea2c1', fontSize: 11 }}
                             />
                             <Tooltip
                                 formatter={(value, name) => {
@@ -113,7 +113,7 @@ const TrendChart = ({ data, copy, locale = 'vi-VN' }) => {
                             <Line
                                 yAxisId="right"
                                 type="monotone"
-                                dataKey="gasLevel"
+                                dataKey="smokeLevel"
                                 stroke="url(#smokeStroke)"
                                 strokeWidth={2.5}
                                 name={copy.smokeLine}

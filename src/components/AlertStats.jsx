@@ -1,6 +1,6 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { MQ2_SMOKE_ALERT_THRESHOLD_PPM, TEMP_ALERT_THRESHOLD_C } from '../constants/sensors';
+import { SMOKE_ALERT_THRESHOLD_PPM, TEMP_ALERT_THRESHOLD_C } from '../constants/sensors';
 
 const StatRow = ({ label, value, valueColor }) => (
     <div className="stats-row">
@@ -25,7 +25,7 @@ const AlertStats = ({ historyData, copy }) => {
     const totalRecords = historyData?.length ?? 0;
     const fireDetectedCount = historyData?.filter(item => item.fireDetected).length ?? 0;
     const highTempCount = historyData?.filter(item => Number(item.temperature || 0) >= TEMP_ALERT_THRESHOLD_C).length ?? 0;
-    const highSmokeCount = historyData?.filter(item => Number(item.gasLevel || 0) >= MQ2_SMOKE_ALERT_THRESHOLD_PPM).length ?? 0;
+    const highSmokeCount = historyData?.filter(item => Number(item.smokeLevel || 0) >= SMOKE_ALERT_THRESHOLD_PPM).length ?? 0;
     const safeCount = totalRecords - fireDetectedCount;
 
     const avgTemperature = totalRecords > 0
@@ -33,7 +33,7 @@ const AlertStats = ({ historyData, copy }) => {
         : '—';
 
     const avgGasLevel = totalRecords > 0
-        ? (historyData.reduce((sum, item) => sum + (item.gasLevel || 0), 0) / totalRecords).toFixed(1)
+        ? (historyData.reduce((sum, item) => sum + (item.smokeLevel || 0), 0) / totalRecords).toFixed(1)
         : '—';
 
     const maxTemperature = totalRecords > 0
@@ -41,7 +41,7 @@ const AlertStats = ({ historyData, copy }) => {
         : '—';
 
     const maxGasLevel = totalRecords > 0
-        ? Math.max(...historyData.map(item => item.gasLevel || 0)).toFixed(1)
+        ? Math.max(...historyData.map(item => item.smokeLevel || 0)).toFixed(1)
         : '—';
 
     const pieData = [

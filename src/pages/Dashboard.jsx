@@ -10,72 +10,57 @@ import ControlPanel from '../components/ControlPanel';
 import {
     FLAME_ALERT_PERCENT,
     TEMP_ALERT_THRESHOLD_C,
-    MQ2_SMOKE_ALERT_THRESHOLD_PPM,
+    SMOKE_ALERT_THRESHOLD_PPM,
 } from '../constants/sensors';
 
-/** CO + LPG + SMOKE from one MQ2 row (`details` JSON or fallback to mainValue as SMOKE). */
-const parseMq2GasTotals = (item) => {
-    if (!item) return { co: 0, lpg: 0, smoke: 0 };
-    const fallbackSmoke = Number(item.mainValue || 0);
-    if (!item.details) return { co: 0, lpg: 0, smoke: fallbackSmoke };
-    try {
-        const parsed = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
-        return {
-            co: Number(parsed?.CO ?? 0),
-            lpg: Number(parsed?.LPG ?? 0),
-            smoke: Number(parsed?.SMOKE ?? fallbackSmoke),
-        };
-    } catch {
-        return { co: 0, lpg: 0, smoke: fallbackSmoke };
-    }
-};
+const resolveSensorType = (item) => {
+    const name = String(item?.sensorName || '').toLowerCase();
+    if (name.includes('temp')) return 'temperature';
+    if (name.includes('smoke')) return 'smoke';
+    if (name.includes('flame')) return 'flame';
 
-const sumThree = (t) => t.co + t.lpg + t.smoke;
+    const topic = String(item?.topic || '').toLowerCase();
+    if (topic.includes('dht20') || topic.includes('temp')) return 'temperature';
+    if (topic.includes('smoke')) return 'smoke';
+    if (topic.includes('flame')) return 'flame';
+    return '';
+};
 
 const buildHistorySeries = (rawData) => {
     if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
     const sorted = [...rawData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     let currentTemperature = 0;
-    let currentGasLevel = 0;
-    let currentMq2_1 = { co: 0, lpg: 0, smoke: 0 };
-    let currentMq2_2 = { co: 0, lpg: 0, smoke: 0 };
+    let currentSmokeLevel = 0;
     let currentFireDetected = false;
 
     return sorted.map((item) => {
-        const topic = item.topic || '';
         const value = Number(item.mainValue || 0);
-        const sensorName = item.sensorName || '';
+        const sensorType = resolveSensorType(item);
 
-        if (topic.includes('dht20')) {
+        if (sensorType === 'temperature') {
             currentTemperature = value;
-        } else if (topic.includes('smoke')) {
-            const t = parseMq2GasTotals(item);
-            if (sensorName === 'mq2_1') currentMq2_1 = t;
-            else if (sensorName === 'mq2_2') currentMq2_2 = t;
-            else currentGasLevel = sumThree(t);
-            if (sensorName === 'mq2_1' || sensorName === 'mq2_2') {
-                currentGasLevel = sumThree(currentMq2_1) + sumThree(currentMq2_2);
-            }
-        } else if (topic.includes('flame')) {
+        } else if (sensorType === 'smoke') {
+            currentSmokeLevel = value;
+        } else if (sensorType === 'flame') {
             currentFireDetected = value >= FLAME_ALERT_PERCENT;
         }
 
         return {
             timestamp: item.timestamp,
             temperature: currentTemperature,
-            gasLevel: currentGasLevel,
+            smokeLevel: currentSmokeLevel,
             fireDetected: currentFireDetected,
         };
     });
 };
 
-const buildAlertMessages = ({ temperature, gasLevel, fireDetected }, messages) => {
+const buildAlertMessages = ({ temperature, smokeLevel, fireDetected }, messages) => {
     const alerts = [];
     if (temperature >= TEMP_ALERT_THRESHOLD_C) {
         alerts.push({ code: 'HIGH_TEMP', message: messages.highTemp, color: '#d97706' });
     }
-    if (gasLevel >= MQ2_SMOKE_ALERT_THRESHOLD_PPM) {
+    if (smokeLevel >= SMOKE_ALERT_THRESHOLD_PPM) {
         alerts.push({ code: 'SMOKE_HIGH', message: messages.highSmoke, color: '#d97706' });
     }
     if (fireDetected) {
@@ -119,7 +104,7 @@ const COPY = {
         fireSafeValue: 'BÌNH THƯỜNG',
         fireAlertValue: 'NGUY CƠ CAO',
         tempCaption: `Ngưỡng giám sát từ ${TEMP_ALERT_THRESHOLD_C}°C`,
-        smokeCaption: `Ngưỡng giám sát từ ${MQ2_SMOKE_ALERT_THRESHOLD_PPM} ppm`,
+        smokeCaption: `Ngưỡng giám sát từ ${SMOKE_ALERT_THRESHOLD_PPM} ppm`,
         fireSafeCaption: 'Chưa ghi nhận tín hiệu lửa vượt ngưỡng cấu hình.',
         fireAlertCaption: 'Đang ghi nhận tín hiệu lửa cần được kiểm tra ngay.',
         systemInfoKicker: 'Thông tin hệ thống',
@@ -140,12 +125,12 @@ const COPY = {
         },
         chart: {
             kicker: 'Diễn biến thời gian thực',
-            title: 'Xu hướng nhiệt độ và tổng khí (MQ-2)',
-            description: 'Đường khí là tổng CO + LPG + SMOKE của cả mq2_1 và mq2_2 (30 mốc gần nhất).',
+            title: 'Xu hướng nhiệt độ và nồng độ khói',
+            description: 'Đường khói hiển thị giá trị smoke (30 mốc gần nhất).',
             note: '30 mốc dữ liệu gần nhất',
             waiting: 'Đang chờ dữ liệu đầu vào...',
             temperatureLine: 'Nhiệt độ (°C)',
-            smokeLine: 'Tổng khí CO+LPG+SMOKE (ppm)',
+            smokeLine: 'Nồng độ khói (ppm)',
         },
         stats: {
             kicker: 'Thống kê và phân tích',
@@ -197,7 +182,7 @@ const COPY = {
             loading: 'Đang thực thi...',
         },
         systemInfo: [
-            { label: 'Cảm biến khí', value: 'MQ-2  ·  Khói & khí dễ cháy' },
+            { label: 'Cảm biến khói', value: 'Smoke  ·  Giám sát nồng độ' },
             { label: 'Cảm biến nhiệt', value: 'DHT20' },
             { label: 'Vi điều khiển', value: 'ESP32  ·  WiFi' },
             { label: 'Chu kỳ cập nhật', value: '~2 giây  ·  MQTT' },
@@ -246,7 +231,7 @@ const COPY = {
         fireSafeValue: 'NORMAL',
         fireAlertValue: 'HIGH RISK',
         tempCaption: `Monitoring threshold from ${TEMP_ALERT_THRESHOLD_C}°C`,
-        smokeCaption: `Monitoring threshold from ${MQ2_SMOKE_ALERT_THRESHOLD_PPM} ppm`,
+        smokeCaption: `Monitoring threshold from ${SMOKE_ALERT_THRESHOLD_PPM} ppm`,
         fireSafeCaption: 'No fire signal has exceeded the configured threshold.',
         fireAlertCaption: 'A fire signal is currently being detected and requires inspection.',
         systemInfoKicker: 'System information',
@@ -267,12 +252,12 @@ const COPY = {
         },
         chart: {
             kicker: 'Real-time trend',
-            title: 'Temperature and total gas (MQ-2)',
-            description: 'Gas line is CO + LPG + SMOKE summed for mq2_1 and mq2_2 (latest 30 points).',
+            title: 'Temperature and smoke level',
+            description: 'Smoke line shows the latest smoke concentration values (latest 30 points).',
             note: 'Latest 30 data points',
             waiting: 'Waiting for incoming data...',
             temperatureLine: 'Temperature (°C)',
-            smokeLine: 'Total gas CO+LPG+SMOKE (ppm)',
+            smokeLine: 'Smoke level (ppm)',
         },
         stats: {
             kicker: 'Stats & Insights',
@@ -324,7 +309,7 @@ const COPY = {
             loading: 'Executing...',
         },
         systemInfo: [
-            { label: 'Gas sensor', value: 'MQ-2  ·  Smoke & flammable gas' },
+            { label: 'Smoke sensor', value: 'Smoke  ·  Concentration monitoring' },
             { label: 'Temperature sensor', value: 'DHT20' },
             { label: 'Controller', value: 'ESP32  ·  WiFi' },
             { label: 'Update cycle', value: '~2 seconds  ·  MQTT' },
@@ -352,7 +337,7 @@ const Dashboard = () => {
     const [language, setLanguage] = useState('vi');
     const [latestData, setLatestData] = useState({
         temperature: 0,
-        gasLevel: 0,
+        smokeLevel: 0,
         fireDetected: false,
         timestamp: '',
     });
@@ -385,30 +370,21 @@ const Dashboard = () => {
 
                 if (rawData && Array.isArray(rawData) && rawData.length > 0) {
                     const sortedData = [...rawData].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    const latestSmokeMq2_1 = sortedData.find(item => item.topic?.includes('smoke') && item.sensorName === 'mq2_1');
-                    const latestSmokeMq2_2 = sortedData.find(item => item.topic?.includes('smoke') && item.sensorName === 'mq2_2');
-                    const latestSmokeLegacy = sortedData.find(item => item.topic?.includes('smoke') && !item.sensorName);
-                    const latestFlame = sortedData.find(item => item.topic?.includes('flame'));
-                    const latestDht = sortedData.find(item => item.topic?.includes('dht20'));
+                    const latestTemp = sortedData.find(item => resolveSensorType(item) === 'temperature');
+                    const latestSmoke = sortedData.find(item => resolveSensorType(item) === 'smoke');
+                    const latestFlame = sortedData.find(item => resolveSensorType(item) === 'flame');
 
-                    const latestTemperature = latestDht ? Number(latestDht.mainValue || 0) : 0;
-                    const mq2_1_total = sumThree(parseMq2GasTotals(latestSmokeMq2_1));
-                    const mq2_2_total = sumThree(parseMq2GasTotals(latestSmokeMq2_2));
-                    let latestGasLevel = mq2_1_total + mq2_2_total;
-                    if (!latestSmokeMq2_1 && !latestSmokeMq2_2 && latestSmokeLegacy) {
-                        latestGasLevel = sumThree(parseMq2GasTotals(latestSmokeLegacy));
-                    }
+                    const latestTemperature = latestTemp ? Number(latestTemp.mainValue || 0) : 0;
+                    const latestSmokeLevel = latestSmoke ? Number(latestSmoke.mainValue || 0) : 0;
                     const isFire = latestFlame ? Number(latestFlame.mainValue || 0) >= FLAME_ALERT_PERCENT : false;
-                    const latestTimestamp = latestDht?.timestamp
-                        ?? latestSmokeMq2_1?.timestamp
-                        ?? latestSmokeMq2_2?.timestamp
-                        ?? latestSmokeLegacy?.timestamp
+                    const latestTimestamp = latestTemp?.timestamp
+                        ?? latestSmoke?.timestamp
                         ?? latestFlame?.timestamp
                         ?? '';
 
                     setLatestData({
                         temperature: Number(latestTemperature.toFixed(1)),
-                        gasLevel: Number(latestGasLevel.toFixed(1)),
+                        smokeLevel: Number(latestSmokeLevel.toFixed(1)),
                         fireDetected: isFire,
                         timestamp: latestTimestamp,
                     });
@@ -416,7 +392,7 @@ const Dashboard = () => {
                 } else {
                     setLatestData({
                         temperature: 0,
-                        gasLevel: 0,
+                        smokeLevel: 0,
                         fireDetected: false,
                         timestamp: '',
                     });
@@ -475,7 +451,7 @@ const Dashboard = () => {
         ? Math.max(...historyData.map((item) => Number(item.temperature || 0))).toFixed(1)
         : '0.0';
     const peakSmoke = historyData.length > 0
-        ? Math.max(...historyData.map((item) => Number(item.gasLevel || 0))).toFixed(0)
+        ? Math.max(...historyData.map((item) => Number(item.smokeLevel || 0))).toFixed(0)
         : '0';
     const statusLabel = isAlert ? copy.headerAlert : copy.headerSafe;
     const heroStatus = isAlert ? copy.statusAlert : copy.statusSafe;
@@ -651,11 +627,11 @@ const Dashboard = () => {
                             />
                             <SensorCard
                                 title={copy.smoke}
-                                value={latestData.gasLevel}
+                                value={latestData.smokeLevel}
                                 unit="ppm"
                                 color="#f59e0b"
                                 icon={Wind}
-                                status={latestData.gasLevel >= MQ2_SMOKE_ALERT_THRESHOLD_PPM ? copy.statusWarning : copy.statusNormal}
+                                status={latestData.smokeLevel >= SMOKE_ALERT_THRESHOLD_PPM ? copy.statusWarning : copy.statusNormal}
                                 caption={copy.smokeCaption}
                             />
                             <SensorCard

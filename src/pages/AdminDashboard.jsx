@@ -17,7 +17,7 @@ import {
 import axiosClient from '../api/axiosClient';
 import {
   FLAME_ALERT_PERCENT,
-  MQ2_SMOKE_ALERT_THRESHOLD_PPM,
+  SMOKE_ALERT_THRESHOLD_PPM,
   TEMP_ALERT_THRESHOLD_C,
 } from '../constants/sensors';
 import '../styles/AdminDashboard.css';
@@ -38,6 +38,17 @@ const COPY = {
       overviewTitle: 'Tổng quan phòng',
       overviewDesc: 'Xem nhanh trạng thái các phòng. Bấm “Xem chi tiết” để thao tác phòng cụ thể.',
       refresh: 'Làm mới',
+      registerTitle: 'Đăng ký phòng',
+      registerDesc: 'Tạo phòng mới để gán người dùng và giám sát.',
+      registerCode: 'Mã phòng',
+      registerName: 'Tên phòng',
+      registerDescription: 'Mô tả',
+      registerMonitoring: 'Bật giám sát',
+      registerSubmit: 'Tạo phòng',
+      registering: 'Đang tạo...',
+      registerSuccess: 'Đã tạo phòng mới',
+      registerError: 'Không thể tạo phòng',
+      registerRequired: 'Vui lòng nhập mã phòng và tên phòng',
       broadcastTitle: 'Phát lệnh',
       broadcastHelp: 'Kích hoạt còi ở tất cả phòng',
       broadcastButton: 'Kích hoạt còi (Tất cả phòng)',
@@ -156,6 +167,17 @@ const COPY = {
       overviewTitle: 'Room Overview',
       overviewDesc: 'Quick view of room status. Use “View details” to control a specific room.',
       refresh: 'Refresh',
+      registerTitle: 'Register Room',
+      registerDesc: 'Create a new room for user assignment and monitoring.',
+      registerCode: 'Room code',
+      registerName: 'Room name',
+      registerDescription: 'Description',
+      registerMonitoring: 'Enable monitoring',
+      registerSubmit: 'Create room',
+      registering: 'Creating...',
+      registerSuccess: 'Room created',
+      registerError: 'Failed to create room',
+      registerRequired: 'Please enter room code and room name',
       broadcastTitle: 'Broadcast',
       broadcastHelp: 'Activate all sirens in all rooms',
       broadcastButton: 'Broadcast Siren (All rooms)',
@@ -273,6 +295,13 @@ const EMPTY_FORM = {
   roomId: '',
 };
 
+const EMPTY_ROOM_FORM = {
+  code: '',
+  name: '',
+  description: '',
+  monitoringEnabled: true,
+};
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('rooms');
   const [users, setUsers] = useState([]);
@@ -292,6 +321,8 @@ export default function AdminDashboard() {
   const [assignRoomSelection, setAssignRoomSelection] = useState({});
   const [controlLoading, setControlLoading] = useState(null);
   const [language, setLanguage] = useState('vi');
+  const [roomCreateForm, setRoomCreateForm] = useState(EMPTY_ROOM_FORM);
+  const [roomCreateLoading, setRoomCreateLoading] = useState(false);
   const navigate = useNavigate();
 
   const user = useMemo(() => JSON.parse(localStorage.getItem('user') || '{}'), []);
@@ -485,6 +516,36 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreateRoom = async (event) => {
+    event?.preventDefault?.();
+    const code = String(roomCreateForm.code || '').trim();
+    const name = String(roomCreateForm.name || '').trim();
+    const description = String(roomCreateForm.description || '').trim();
+
+    if (!code || !name) {
+      alert(copy.rooms.registerRequired);
+      return;
+    }
+
+    try {
+      setRoomCreateLoading(true);
+      await axiosClient.post('/admin/rooms', {
+        code,
+        name,
+        description: description || null,
+        monitoringEnabled: !!roomCreateForm.monitoringEnabled,
+      });
+      alert(copy.rooms.registerSuccess);
+      setRoomCreateForm(EMPTY_ROOM_FORM);
+      await refreshRooms();
+    } catch (error) {
+      console.error('Failed to create room:', error);
+      alert(error.response?.data?.message || copy.rooms.registerError);
+    } finally {
+      setRoomCreateLoading(false);
+    }
+  };
+
   const formatSummaryNumber = (value, decimals = 0) => {
     if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
     const num = Number(value);
@@ -575,10 +636,10 @@ export default function AdminDashboard() {
 
   const overviewSummary = roomOverview?.summary || roomSummaries.find((s) => s.id === selectedRoomId) || null;
   const currentTemp = Number(overviewSummary?.temperature ?? 0);
-  const currentSmoke = Number(overviewSummary?.smokeTotal ?? 0);
+  const currentSmoke = Number(overviewSummary?.smoke ?? 0);
   const currentFlame = Number(overviewSummary?.flame ?? 0);
   const tempAlert = overviewSummary?.temperature != null && currentTemp >= TEMP_ALERT_THRESHOLD_C;
-  const smokeAlert = overviewSummary?.smokeTotal != null && currentSmoke >= MQ2_SMOKE_ALERT_THRESHOLD_PPM;
+  const smokeAlert = overviewSummary?.smoke != null && currentSmoke >= SMOKE_ALERT_THRESHOLD_PPM;
   const flameAlert = overviewSummary?.flame != null && currentFlame >= FLAME_ALERT_PERCENT;
   const hasAnyAlert = tempAlert || smokeAlert || flameAlert;
 
@@ -665,6 +726,78 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            <form className="form-container" onSubmit={handleCreateRoom} style={{ marginTop: 14 }}>
+              <div style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
+                <h3 style={{ margin: 0 }}>{copy.rooms.registerTitle}</h3>
+                <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 13 }}>{copy.rooms.registerDesc}</p>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="room_code">{copy.rooms.registerCode}</label>
+                  <input
+                    id="room_code"
+                    type="text"
+                    value={roomCreateForm.code}
+                    onChange={(e) => setRoomCreateForm((prev) => ({ ...prev, code: e.target.value }))}
+                    placeholder="ROOM-101"
+                    disabled={roomCreateLoading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="room_name">{copy.rooms.registerName}</label>
+                  <input
+                    id="room_name"
+                    type="text"
+                    value={roomCreateForm.name}
+                    onChange={(e) => setRoomCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Phòng 101"
+                    disabled={roomCreateLoading}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label htmlFor="room_desc">{copy.rooms.registerDescription}</label>
+                  <input
+                    id="room_desc"
+                    type="text"
+                    value={roomCreateForm.description}
+                    onChange={(e) => setRoomCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder=""
+                    disabled={roomCreateLoading}
+                  />
+                </div>
+
+                <div className="form-group form-group--inline" style={{ gridColumn: '1 / -1' }}>
+                  <label htmlFor="room_monitoring">
+                    <input
+                      id="room_monitoring"
+                      type="checkbox"
+                      checked={!!roomCreateForm.monitoringEnabled}
+                      onChange={(e) => setRoomCreateForm((prev) => ({ ...prev, monitoringEnabled: e.target.checked }))}
+                      disabled={roomCreateLoading}
+                    />
+                    {copy.rooms.registerMonitoring}
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="submit" className="save-btn" disabled={roomCreateLoading}>
+                  {roomCreateLoading ? copy.rooms.registering : copy.rooms.registerSubmit}
+                </button>
+                <button
+                  type="button"
+                  className="edit-btn"
+                  onClick={() => setRoomCreateForm(EMPTY_ROOM_FORM)}
+                  disabled={roomCreateLoading}
+                >
+                  {copy.users.cancel}
+                </button>
+              </div>
+            </form>
+
             {roomsLoading || roomSummaryLoading ? (
               <p>{copy.rooms.loadingRooms}</p>
             ) : roomSummaries.length === 0 ? (
@@ -696,7 +829,7 @@ export default function AdminDashboard() {
                             {copy.rooms.temp}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.temperature, 1)}°C</strong>
                           </span>
                           <span title={copy.rooms.smoke}>
-                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smokeTotal, 0)}</strong>
+                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smoke, 0)}</strong>
                           </span>
                           <span title={copy.rooms.flame}>
                             {copy.rooms.flame}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.flame, 0)}</strong>
@@ -784,7 +917,7 @@ export default function AdminDashboard() {
                           <span>{copy.stats.currentTemp}</span>
                         </div>
                         <div className="stat-pill">
-                          <strong>{formatSummaryNumber(overviewSummary?.smokeTotal, 0)}</strong>
+                          <strong>{formatSummaryNumber(overviewSummary?.smoke, 0)}</strong>
                           <span>{copy.stats.currentSmoke}</span>
                         </div>
                         <div className="stat-pill">
