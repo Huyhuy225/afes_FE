@@ -644,10 +644,10 @@ export default function AdminDashboard() {
 
   const overviewSummary = roomOverview?.summary || roomSummaries.find((s) => s.id === selectedRoomId) || null;
   const currentTemp = Number(overviewSummary?.temperature ?? 0);
-  const currentSmoke = Number(overviewSummary?.smoke ?? 0);
+  const currentSmoke = Number(overviewSummary?.smokeTotal ?? 0);
   const currentFlame = Number(overviewSummary?.flame ?? 0);
   const tempAlert = overviewSummary?.temperature != null && currentTemp >= TEMP_ALERT_THRESHOLD_C;
-  const smokeAlert = overviewSummary?.smoke != null && currentSmoke >= SMOKE_ALERT_THRESHOLD_PPM;
+  const smokeAlert = overviewSummary?.smokeTotal != null && currentSmoke >= SMOKE_ALERT_THRESHOLD_PPM;
   const flameAlert = overviewSummary?.flame != null && currentFlame >= FLAME_ALERT_PERCENT;
   const hasAnyAlert = tempAlert || smokeAlert || flameAlert;
 
@@ -748,7 +748,7 @@ export default function AdminDashboard() {
                     type="text"
                     value={roomCreateForm.code}
                     onChange={(e) => setRoomCreateForm((prev) => ({ ...prev, code: e.target.value }))}
-                    placeholder="ROOM-101"
+                    placeholder="101"
                     disabled={roomCreateLoading}
                   />
                 </div>
@@ -837,7 +837,7 @@ export default function AdminDashboard() {
                             {copy.rooms.temp}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.temperature, 1)}°C</strong>
                           </span>
                           <span title={copy.rooms.smoke}>
-                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smoke, 0)}</strong>
+                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smokeTotal, 0)}</strong>
                           </span>
                           <span title={copy.rooms.flame}>
                             {copy.rooms.flame}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.flame, 0)}</strong>
@@ -925,7 +925,7 @@ export default function AdminDashboard() {
                           <span>{copy.stats.currentTemp}</span>
                         </div>
                         <div className="stat-pill">
-                          <strong>{formatSummaryNumber(overviewSummary?.smoke, 0)}</strong>
+                          <strong>{formatSummaryNumber(overviewSummary?.smokeTotal, 0)}</strong>
                           <span>{copy.stats.currentSmoke}</span>
                         </div>
                         <div className="stat-pill">
