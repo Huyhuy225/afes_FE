@@ -344,10 +344,16 @@ export default function AdminDashboard() {
     if (!selectedRoomId || !detailsOpen) {
       setRoomUsers([]);
       setRoomOverview(null);
-      return;
+      return undefined;
     }
 
-    fetchRoomDetails(selectedRoomId);
+    fetchRoomDetails(selectedRoomId, true);
+    
+    const interval = setInterval(() => {
+      fetchRoomDetails(selectedRoomId, false);
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, [detailsOpen, selectedRoomId]);
 
   const selectedRoom = useMemo(
@@ -396,9 +402,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchRoomDetails = async (roomId) => {
+  const fetchRoomDetails = async (roomId, showLoading = true) => {
     try {
-      setRoomDetailLoading(true);
+      if (showLoading) setRoomDetailLoading(true);
       const [usersResponse, overviewResponse] = await Promise.all([
         axiosClient.get(`/admin/rooms/${roomId}/users`),
         axiosClient.get(`/admin/rooms/${roomId}/overview`),
@@ -407,10 +413,12 @@ export default function AdminDashboard() {
       setRoomOverview(overviewResponse.data || null);
     } catch (error) {
       console.error('Failed to fetch room details:', error);
-      setRoomUsers([]);
-      setRoomOverview(null);
+      if (showLoading) {
+        setRoomUsers([]);
+        setRoomOverview(null);
+      }
     } finally {
-      setRoomDetailLoading(false);
+      if (showLoading) setRoomDetailLoading(false);
     }
   };
 

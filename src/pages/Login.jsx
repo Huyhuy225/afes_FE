@@ -39,8 +39,7 @@ export default function Login() {
         roomName: response.data.roomName,
       }));
 
-      // Set default Authorization header
-      axiosClient.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      // Interceptor trong axiosClient.js sẽ tự động gắn token cho mọi request
 
       // Redirect based on role
       if (role === 'ADMIN') {

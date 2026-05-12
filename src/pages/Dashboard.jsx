@@ -365,7 +365,10 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const historyRes = await sensorApi.getHistory();
+                // Fetch history by room if the user has a roomId, otherwise fetch all
+                const historyRes = user?.roomId 
+                    ? await sensorApi.getHistoryByRoom(user.roomId)
+                    : await sensorApi.getHistory();
                 const rawData = historyRes.data ? historyRes.data : historyRes;
 
                 if (rawData && Array.isArray(rawData) && rawData.length > 0) {

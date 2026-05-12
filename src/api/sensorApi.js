@@ -3,6 +3,8 @@ import axiosClient from './axiosClient';
 const sensorApi = {
     getLatest: () => axiosClient.get('/sensors/history/latest'),
     getHistory: () => axiosClient.get('/sensors/history'),
+    getLatestByRoom: (roomId) => axiosClient.get(`/sensors/history/latest/room/${roomId}`),
+    getHistoryByRoom: (roomId) => axiosClient.get(`/sensors/history/room/${roomId}`),
     
     // Control endpoints
     control: (action) => axiosClient.post('/control', { action }),

@@ -12,7 +12,12 @@ RUN echo "Building with API URL: ${VITE_API_URL}" && npm run build
 # Runtime stage
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html/afes_FE
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
+
+# Copy config as a template for environment variable substitution
+COPY nginx-default.conf /etc/nginx/templates/default.conf.template
+
+# Default environment variable for local development
+ENV BACKEND_URL=http://backend:8080/api/
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
