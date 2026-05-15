@@ -12,6 +12,7 @@ import {
   ShieldOff,
   Siren,
   TestTube2,
+  Trash2,
   X,
 } from 'lucide-react';
 import axiosClient from '../api/axiosClient';
@@ -64,6 +65,9 @@ const COPY = {
       viewDetails: 'Xem chi tiết',
       enableMonitoring: 'Bật giám sát',
       disableMonitoring: 'Tắt giám sát',
+      confirmDeleteRoom: 'Bạn có chắc chắn muốn xoá phòng này?',
+      deleteRoom: 'Xóa phòng',
+      deleteError: 'Không thể xóa phòng',
     },
     modal: {
       title: 'Chi tiết phòng',
@@ -122,6 +126,7 @@ const COPY = {
       form: {
         username: 'Tên đăng nhập',
         email: 'Email',
+        phone: 'Số điện thoại',
         fullName: 'Họ và tên',
         password: (editing) => `Mật khẩu${editing ? ' (để trống nếu không đổi)' : ''}`,
         passwordPlaceholder: (editing) => (editing ? 'Không bắt buộc' : 'Nhập mật khẩu'),
@@ -134,6 +139,7 @@ const COPY = {
         id: 'ID',
         username: 'Tên đăng nhập',
         email: 'Email',
+        phone: 'Số điện thoại',
         fullName: 'Họ và tên',
         role: 'Vai trò',
         room: 'Phòng',
@@ -193,6 +199,9 @@ const COPY = {
       viewDetails: 'View details',
       enableMonitoring: 'Enable monitoring',
       disableMonitoring: 'Disable monitoring',
+      confirmDeleteRoom: 'Are you sure you want to delete this room?',
+      deleteRoom: 'Delete Room',
+      deleteError: 'Failed to delete room',
     },
     modal: {
       title: 'Room Details',
@@ -251,6 +260,7 @@ const COPY = {
       form: {
         username: 'Username',
         email: 'Email',
+        phone: 'Phone Number',
         fullName: 'Full Name',
         password: (editing) => `Password${editing ? ' (leave blank to keep current password)' : ''}`,
         passwordPlaceholder: (editing) => (editing ? 'Optional' : 'Enter password'),
@@ -263,6 +273,7 @@ const COPY = {
         id: 'ID',
         username: 'Username',
         email: 'Email',
+        phone: 'Phone Number',
         fullName: 'Full Name',
         role: 'Role',
         room: 'Room',
@@ -288,6 +299,7 @@ const COPY = {
 const EMPTY_FORM = {
   username: '',
   email: '',
+  phoneNumber: '',
   fullName: '',
   password: '',
   role: 'USER',
@@ -443,6 +455,7 @@ export default function AdminDashboard() {
     setFormData({
       username: item.username || '',
       email: item.email || '',
+      phoneNumber: item.phoneNumber || '',
       fullName: item.fullName || '',
       password: '',
       role: item.role || 'USER',
@@ -468,11 +481,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteRoom = async (roomId) => {
+    if (!window.confirm(copy.rooms.confirmDeleteRoom)) {
+      return;
+    }
+
+    try {
+      await axiosClient.delete(`/admin/rooms/${roomId}`);
+      setDetailsOpen(false);
+      setSelectedRoomId(null);
+      await refreshRooms();
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+      alert(error.response?.data?.message || copy.rooms.deleteError);
+    }
+  };
+
   const handleSave = async () => {
     try {
       const payload = {
         username: formData.username,
         email: formData.email,
+        phoneNumber: formData.phoneNumber,
         fullName: formData.fullName,
         isActive: formData.isActive,
         role: { name: formData.role || 'USER' },
@@ -837,7 +867,7 @@ export default function AdminDashboard() {
                             {copy.rooms.temp}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.temperature, 1)}°C</strong>
                           </span>
                           <span title={copy.rooms.smoke}>
-                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smokeTotal, 0)}</strong>
+                            {copy.rooms.smoke}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.smokeTotal, 1)}</strong>
                           </span>
                           <span title={copy.rooms.flame}>
                             {copy.rooms.flame}: <strong style={{ color: 'var(--text)' }}>{formatSummaryNumber(summary.flame, 0)}</strong>
@@ -898,21 +928,43 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       {selectedRoom && (
-                        <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
+                        <div style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 8 }}>
                           <strong style={{ color: 'var(--text)' }}>{selectedRoom.code}</strong> · {selectedRoom.name}
+                        </div>
+                      )}
+                      {roomUsers && roomUsers.length > 0 && (
+                        <div style={{ color: 'var(--text-2)', fontSize: 13, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {roomUsers.map(u => (
+                            <div key={u.id}>
+                              👤 <strong style={{ color: 'var(--text)' }}>{u.fullName || u.username}</strong>
+                              {' '}· 📞 {u.phoneNumber || 'N/A'}
+                              {' '}· ✉️ {u.email || 'N/A'}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      className="control-button control-button--neutral"
-                      onClick={handleCloseRoomDetails}
-                      title={copy.modal.close}
-                      style={{ padding: '10px 12px', borderRadius: 12 }}
-                    >
-                      <X size={16} /> {copy.modal.close}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="control-button control-button--danger"
+                        onClick={() => handleDeleteRoom(selectedRoomId)}
+                        title={copy.rooms.deleteRoom}
+                        style={{ padding: '10px 12px', borderRadius: 12 }}
+                      >
+                        <Trash2 size={16} /> {copy.rooms.deleteRoom}
+                      </button>
+                      <button
+                        type="button"
+                        className="control-button control-button--neutral"
+                        onClick={handleCloseRoomDetails}
+                        title={copy.modal.close}
+                        style={{ padding: '10px 12px', borderRadius: 12 }}
+                      >
+                        <X size={16} /> {copy.modal.close}
+                      </button>
+                    </div>
                   </div>
 
                   {roomDetailLoading ? (
@@ -925,7 +977,7 @@ export default function AdminDashboard() {
                           <span>{copy.stats.currentTemp}</span>
                         </div>
                         <div className="stat-pill">
-                          <strong>{formatSummaryNumber(overviewSummary?.smokeTotal, 0)}</strong>
+                          <strong>{formatSummaryNumber(overviewSummary?.smokeTotal, 1)}</strong>
                           <span>{copy.stats.currentSmoke}</span>
                         </div>
                         <div className="stat-pill">
@@ -1125,6 +1177,15 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div className="form-group">
+                    <label>{copy.users.form.phone} *</label>
+                    <input
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
                     <label>{copy.users.form.fullName}</label>
                     <input
                       type="text"
@@ -1187,6 +1248,7 @@ export default function AdminDashboard() {
                     <th>{copy.users.table.id}</th>
                     <th>{copy.users.table.username}</th>
                     <th>{copy.users.table.email}</th>
+                    <th>{copy.users.table.phone}</th>
                     <th>{copy.users.table.fullName}</th>
                     <th>{copy.users.table.role}</th>
                     <th>{copy.users.table.room}</th>
@@ -1201,6 +1263,7 @@ export default function AdminDashboard() {
                       <td>{item.id}</td>
                       <td>{item.username}</td>
                       <td>{item.email}</td>
+                      <td>{item.phoneNumber}</td>
                       <td>{item.fullName}</td>
                       <td><span className={`role-badge ${item.role}`}>{item.role}</span></td>
                       <td>{item.roomName || copy.users.form.noRoom}</td>
